@@ -1,0 +1,31 @@
+[package]
+name = "spi-button-controller"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "spi_button_controller"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+syslog = "6"
+log = "0.4"
+env_logger = "0.10"
+linux-embedded-hal = "0.4"
+rppal = "0.18"
+regex = "1"
+anyhow = "1"
+thiserror = "1"
+signal-hook = "0.3"
+signal-hook-tokio = { version = "0.3" }
+# PRU driver support - for BBB SPI duplex communication
+libc = "0.2"
+parking_lot = "0.12"
+ctrlc = "3.4"
+
+[profile.release]
+opt-level = 3
+lto = true
