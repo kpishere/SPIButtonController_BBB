@@ -7,6 +7,9 @@ use log::{info, error};
 use std::fs;
 use std::path::PathBuf;
 use tokio::signal::unix::{signal, SignalKind};
+use tokio::sync::mpsc;
+use crate::command::EventMessage;
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -36,8 +39,14 @@ async fn main() -> Result<()> {
         return Err(anyhow::anyhow!("SPI device not found: {}", spi_device_path));
     }
 
-    // Create daemon
-    let mut daemon = daemon::Daemon::new(config)?;
+    // Create response queue for Klipper command replies
+    let (resp_tx, mut resp_rx) = mpsc::channel::<EventMessage>(32);
+
+    // map request_id -> trigger_info for correlation
+    let mut pending: HashMap<String, String> = HashMap::new();
+
+    // Create daemon and provide response sender
+    let mut daemon = daemon::Daemon::new(config, Some(resp_tx))?;
 
     // Setup signal handling via tokio
     let mut sigterm = signal(SignalKind::terminate()).context("Failed to setup SIGTERM handler")?;
@@ -68,6 +77,26 @@ async fn main() -> Result<()> {
                 let new_config: config::Config = serde_yaml::from_str(&config_content)?;
                 daemon.reload_config(new_config)?;
                 info!("Configuration reloaded successfully");
+            }
+            // Klipper command messages (issued & responses)
+            maybe_msg = resp_rx.recv() => {
+                if let Some(msg) = maybe_msg {
+                    match msg {
+                        EventMessage::Issued { request_id, trigger_info } => {
+                            // persist mapping for later correlation
+                            pending.insert(request_id.clone(), trigger_info.clone());
+                            info!("Tracked issued request id={} info={}", request_id, trigger_info);
+                        }
+                        EventMessage::Response(resp) => {
+                            // correlate with original trigger
+                            if let Some(info) = pending.remove(&resp.request_id) {
+                                info!("Klipper response id={} correlated_to={} success={} status={:?} body={:?}", resp.request_id, info, resp.success, resp.status, resp.body);
+                            } else {
+                                info!("Klipper response id={} (no matching issue found) success={} status={:?} body={:?}", resp.request_id, resp.success, resp.status, resp.body);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

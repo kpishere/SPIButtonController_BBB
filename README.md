@@ -159,69 +159,114 @@ sudo /usr/local/bin/spi-button-controller /path/to/custom/config.yaml
 
 ## Examples
 
-### Button Matrix Controller
+### Basic Button Controller
 
-Monitor a button matrix on an SPI device and run commands:
-
-```yaml
-registers:
-  - register_address: 0x00
-    name: "Button Matrix"
-    value_triggers:
-      - value: 0x01
-        description: "Button 1 pressed"
-        command: "systemctl restart nginx"
-      
-      - value: 0x02
-        description: "Button 2 pressed"
-        command: "shutdown -h now"
-      
-      - value: 0x04
-        description: "Button 3 pressed"
-        command: "/usr/local/bin/custom-script.sh"
-```
-
-### LED Control with Masking
-
-Monitor LED status register with bit masking:
+Monitor buttons on an SPI shift register and execute local commands:
 
 ```yaml
-registers:
-  - register_address: 0x10
-    name: "LED Status"
-    value_triggers:
-      - value: 0x01
-        mask: 0x01
-        description: "LED 1 on"
-        command: "logger -t spi 'LED 1 is now on'"
-      
-      - value: 0x00
-        mask: 0x01
-        description: "LED 1 off"
-        command: "logger -t spi 'LED 1 is now off'"
+spi:
+  device: "/dev/spidev0.0"
+  speed_hz: 1000000
+  mode: 0
+
+polling:
+  interval_ms: 100
+
+buttons:
+  - button: 0
+    config: 0x68  # OnChange | OnHold | Toggle
+    description: "Button 1 - Restart Nginx"
+    command: "systemctl restart nginx"
+  
+  - button: 1
+    config: 0x68
+    description: "Button 2 - Run Script"
+    command: "/usr/local/bin/custom-script.sh"
+  
+  - button: 2
+    config: 0x68
+    description: "Button 3 - Logger"
+    command: "logger -t spi 'Button 3 pressed'"
 ```
 
-### Temperature Sensor Status
+### Button Controller with Klipper Integration
 
-Monitor device status with multiple triggers:
+Monitor buttons and send commands to a Klipper API server:
 
 ```yaml
-registers:
-  - register_address: 0x20
-    name: "Device Status"
-    value_triggers:
-      - value: 0x00
-        description: "Normal operation"
-        command: "systemctl start cooling-system"
-      
-      - value: 0x01
-        description: "Overheating"
-        command: "logger -t spi 'WARNING: Device overheating'; systemctl restart cooling-system"
-      
-      - value: 0x02
-        description: "Critical temperature"
-        command: "logger -t spi 'CRITICAL: Device critical temperature'; shutdown -h 5"
+spi:
+  device: "/dev/spidev0.0"
+  speed_hz: 1000000
+  mode: 0
+
+polling:
+  interval_ms: 100
+
+buttons:
+  - button: 0
+    config: 0x68
+    description: "Home XY Axes"
+    command: "klipper:printer.gcode.script|{\"script\":\"G28 X Y\"}"
+  
+  - button: 1
+    config: 0x68
+    description: "Heat Bed to 60C"
+    command: "klipper:printer.gcode.script|{\"script\":\"M140 S60\"}"
+  
+  - button: 2
+    config: 0x68
+    description: "Local Emergency Stop"
+    command: "/usr/local/bin/emergency-stop.sh"
+
+klipper:
+  base_url: "http://127.0.0.1:7125/"
+  api_key: null
 ```
+
+### Mixed System and Klipper Commands
+
+Combine local system commands with Klipper API calls:
+
+```yaml
+spi:
+  device: "/dev/spidev0.0"
+  speed_hz: 1000000
+  mode: 0
+
+polling:
+  interval_ms: 100
+
+buttons:
+  - button: 0
+    config: 0x68
+    description: "Start Print and Log"
+    command: "klipper:printer.print.start|{}"
+  
+  - button: 1
+    config: 0x68
+    description: "Stop Print and Notify"
+    command: "logger -t spi 'Print stopped'; klipper:printer.print.cancel|{}"
+  
+  - button: 2
+    config: 0x68
+    description: "Query Printer Status"
+    command: "klipper:printer.objects.query|{\"objects\":{\"printer\":null}}"
+
+klipper:
+  base_url: "http://127.0.0.1:7125/"
+  api_key: null
+```
+
+### Button Configuration Details
+
+- **button**: Integer ID of the button on the shift register (0-based)
+- **config**: Hex value specifying button behavior flags:
+  - `0x20` — OnChange: trigger when button state changes
+  - `0x40` — OnHold: trigger when button is held
+  - `0x08` — Toggle: toggle mode (lamp control)
+  - Combine with bitwise OR, e.g. `0x68` = OnChange | OnHold | Toggle
+- **description**: Human-readable label for the button
+- **command**: Shell command to execute locally, or `klipper:METHOD|<JSON>` to send to Klipper API
 
 ## Architecture
 
@@ -258,6 +303,39 @@ registers:
 ```
 Error: SPI device not found: /dev/spidev0.0
 ```
+
+## Klipper API Integration
+
+This project includes support for sending commands to a Klipper API server alongside traditional system commands. Key points:
+
+- **Klipper API support**: An optional `klipper` section can be added to the YAML configuration (see `src/config.rs`). Fields:
+  - **base_url**: Base URL for the Klipper API server, e.g. `http://127.0.0.1:7125/`
+  - **api_key**: Optional token or API key (currently not automatically applied as a header; extend `send_klipper_command` in `src/command.rs` if needed)
+
+- **Command types**:
+  - **System commands**: Existing behavior — any shell command in the `command` field is executed locally.
+  - **Klipper commands**: Commands that start with the prefix `klipper:` are sent to the Klipper API server via HTTP.
+    - Syntax: `klipper:METHOD|<JSON_PARAMS>`
+    - Example: `klipper:printer.gcode.script|{"script":"G28"}`
+
+- **Request/response flow**:
+  1. When a Klipper command is triggered, the daemon generates a UUID `request_id` and immediately sends an `Issued` event (containing `request_id` and trigger metadata) into the internal response queue.
+  2. The Klipper request is posted as a JSON-RPC-like object to the configured `klipper.base_url` with the provided method and params.
+  3. When the HTTP response arrives, an `EventResponse` is queued with the `request_id`, success status, HTTP status code, and parsed response body.
+  4. The main loop maintains a `pending` map of `request_id -> trigger_info` and uses it to correlate responses to the originating button trigger. Once correlated, the mapping is removed and the response is logged.
+
+- **Files involved**:
+  - `src/config.rs` — defines `KlipperConfig` and adds optional `klipper` field to `Config`.
+  - `src/command.rs` — provides `EventMessage` enum, `EventResponse` struct, and `send_klipper_command` async function (uses `reqwest` for HTTP and `serde_json` for JSON handling).
+  - `src/daemon.rs` — accepts an optional response sender, emits `Issued` events before dispatching Klipper requests, and preserves system-command behavior.
+  - `src/main.rs` — creates the response queue, tracks pending requests in a map, and correlates incoming responses to original triggers.
+
+- **Build & run**: Build with `cargo build --release` and run with a config path. If using `klipper:` commands, ensure `klipper.base_url` is configured.
+
+- **Notes & extensions**:
+  - If your Klipper server requires authentication, extend `send_klipper_command` to add auth headers using `api_key`.
+  - Consider adding retries, timeouts, or persistence for the `pending` map if durability across daemon restarts is required.
+
 
 Solution: 
 - Check if SPI kernel module is loaded: `lsmod | grep spi`

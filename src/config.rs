@@ -5,6 +5,7 @@ pub struct Config {
     pub spi: SpiConfig,
     pub polling: PollingConfig,
     pub buttons: Vec<ButtonMapping>,
+    pub klipper: Option<KlipperConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +18,14 @@ pub struct SpiConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PollingConfig {
     pub interval_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KlipperConfig {
+    /// Base URL for the Klipper API server, e.g. http://127.0.0.1:7125/
+    pub base_url: String,
+    /// Optional API key or token if the server requires authentication
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +48,7 @@ impl Default for Config {
                 interval_ms: 100,
             },
             buttons: vec![],
+            klipper: None,
         }
     }
 }

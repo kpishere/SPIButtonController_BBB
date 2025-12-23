@@ -1,4 +1,4 @@
-use crate::command::CommandExecutor;
+use crate::command::{CommandExecutor, EventMessage};
 use crate::config::{Config, ButtonMapping};
 use spibuttonlib::{SPIButtonController, SPIButtonState, SPIButton};
 use anyhow::Result;
@@ -9,10 +9,11 @@ use tokio::time::sleep;
 pub struct Daemon {
     spi: SPIButtonController,
     config: Config,
+    response_tx: Option<tokio::sync::mpsc::Sender<EventMessage>>,
 }
 
 impl Daemon {
-    pub fn new(config: Config) -> Result<Self> {
+    pub fn new(config: Config, response_tx: Option<tokio::sync::mpsc::Sender<EventMessage>>) -> Result<Self> {
         let spi_res = SPIButtonController::new(config.buttons.len(), &config.spi.device, config.spi.speed_hz, config.spi.mode);
         match spi_res {
             Ok(mut spi) => {
@@ -21,10 +22,11 @@ impl Daemon {
                 info!("Monitoring {} buttons(s)", config.buttons.len());
         
                 Daemon::init(&config, &mut spi);
-        
+
                 Ok(Daemon {
                     spi,
                     config,
+                    response_tx,
                 })        
             }
             Err(e) => {
@@ -89,20 +91,53 @@ impl Daemon {
     ) {        
         // Execute the associated command
         let cfg_button: &ButtonMapping = &self.config.buttons[button.id() as usize];
-        match CommandExecutor::execute(&cfg_button.command) {
-            Ok(_) => {
-                info!(
-                    "Successfully executed command for trigger on register {:?}",
-                    cfg_button.description
-                );
-                button.set_state(SPIButtonState::Off);
-            }
-            Err(e) => {
-                warn!(
-                    "Failed to execute command for register {:?}: {}",
-                    cfg_button.description, e
-                );
+        let cmd = cfg_button.command.trim();
+
+        if cmd.starts_with("klipper:") {
+            // Klipper API command syntax: klipper:METHOD|<JSON_PARAMS>
+            if let Some(klipper_cfg) = &self.config.klipper {
+                if let Some(tx) = &self.response_tx {
+                    let cmd_clone = cmd.to_string();
+                    let klipper_clone = klipper_cfg.clone();
+                    let tx_clone = tx.clone();
+
+                    // Generate request id and notify main loop that a request was issued
+                    let request_id = uuid::Uuid::new_v4().to_string();
+                    let trigger_info = format!("button_id={} desc={:?}", button.id(), cfg_button.description);
+                    // send Issued event so main can persist metadata
+                    let _ = tx.clone().try_send(EventMessage::Issued { request_id: request_id.clone(), trigger_info: trigger_info.clone() });
+
+                    // spawn the async request using the supplied request_id
+                    tokio::spawn(async move {
+                        CommandExecutor::send_klipper_command(&cmd_clone, &klipper_clone, &request_id, tx_clone).await;
+                    });
+
+                    info!("Dispatched Klipper command from button {:?}", cfg_button.description);
+                    button.set_state(SPIButtonState::Off);
+                } else {
+                    warn!("Klipper command requested but no response queue configured");
+                    button.set_state(SPIButtonState::Flash2);
+                }
+            } else {
+                warn!("Klipper command requested but no klipper config provided");
                 button.set_state(SPIButtonState::Flash2);
+            }
+        } else {
+            match CommandExecutor::execute(&cfg_button.command) {
+                Ok(_) => {
+                    info!(
+                        "Successfully executed command for trigger on register {:?}",
+                        cfg_button.description
+                    );
+                    button.set_state(SPIButtonState::Off);
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to execute command for register {:?}: {}",
+                        cfg_button.description, e
+                    );
+                    button.set_state(SPIButtonState::Flash2);
+                }
             }
         }
     }
