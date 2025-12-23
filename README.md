@@ -37,33 +37,26 @@ Configuration is defined in YAML format. See `examples/config.yaml` for a comple
 ```yaml
 spi:
   device: /dev/spidev0.0          # SPI device path
-  bus: 0                          # SPI bus number
-  chip_select: 0                  # Chip select line
   speed_hz: 1000000               # SPI clock speed in Hz
   mode: 0                         # SPI mode (0-3)
 
 polling:
   interval_ms: 100                # Polling interval in milliseconds
-  debounce_ms: 50                 # Debounce interval in milliseconds
 
-registers:
-  - register_address: 0x00        # Register to monitor (hex)
-    name: "Button State"          # Friendly name
-    value_triggers:
-      - value: 0x01               # Register value to match
-        mask: 0x01                # Optional bit mask (match if (value & mask) == trigger.value)
-        description: "Button 1"   # Event description
-        command: "echo pressed"   # Shell command to execute
+buttons:
+  - button: 0        # Button to monitor
+    # Fire events on: SPIButtonState::OnChange (0x20) | SPIButtonState::OnHold (0x40), lamp toggle feature SPIButtonState::Toggle (0x08)
+    config: 0x68
+    description: "Button 1"   # Event description
+    command: "echo pressed"   # Shell command to execute
 ```
 
 ### Configuration Details
 
-- **register_address**: Hex address of the register to monitor (0x00-0xFF)
-- **value**: Hex value to match. If mask is not provided, the entire register value must match
-- **mask**: Optional hex mask for partial matching (match if `(register_value & mask) == value`)
+- **button**: Number indicating position on parallel to serial pin of shift register
+- **config**: Hex value of enabled features on button
 - **command**: Any shell command that will be executed when the trigger matches
 - **interval_ms**: How frequently to poll the SPI device
-- **debounce_ms**: Minimum time between events on the same register
 
 ## Installation
 
