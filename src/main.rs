@@ -1,5 +1,4 @@
 mod config;
-mod spi;
 mod command;
 mod daemon;
 

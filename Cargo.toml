@@ -17,6 +17,7 @@ anyhow = "1"
 thiserror = "1"
 signal-hook = "0.3"
 signal-hook-tokio = { version = "0.3" }
+spibuttonlib = {git = "https://github.com/kpishere/spibuttonlib.git"}
 
 [profile.release]
 opt-level = 3

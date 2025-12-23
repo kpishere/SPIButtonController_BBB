@@ -1,68 +1,120 @@
 # SPI Button Controller Configuration
-# This file defines how the daemon monitors SPI registers and responds to value changes
+# This file defines how the daemon monitors SPI buttons and responds to value changes
 
 spi:
   # SPI device path (typically /dev/spidev<bus>.<cs>)
-  device: /dev/spidev0.0
-  
-  # SPI bus number
-  bus: 0
-  
-  # Chip select line
-  chip_select: 0
-  
+  device: /dev/spidev1.0
+      
   # SPI clock speed in Hz
-  speed_hz: 1000000  # 1 MHz
+  speed_hz: 800000  # 800 kHz
   
   # SPI mode (0-3)
   mode: 0
 
 # Polling and debounce configuration
 polling:
-  # How often to poll the registers (in milliseconds)
+  # How often to poll the buttons (in milliseconds)
   interval_ms: 100
   
-  # Debounce interval to prevent rapid re-triggering (in milliseconds)
-  debounce_ms: 50
-
 # Register mappings and value triggers
-registers:
-  - register_address: 0x00
-    name: "Button State Register"
-    value_triggers:
-      - value: 0x01
-        mask: 0x01
-        description: "Button 1 pressed"
-        command: "echo 'Button 1 pressed' && logger -t spi-controller 'Button 1 pressed'"
+buttons:
+  - button: 19
+  # Fire events on: SPIButtonState::OnChange (0x20) | SPIButtonState::OnHold (0x40), lamp toggle feature SPIButtonState::Toggle (0x08)
+    config: 0x68
+    description: "Lamp"
+    command: "echo 'Button 19 Lamp' && logger -t spi-controller 'Button 19 Lamp'"
       
-      - value: 0x02
-        mask: 0x02
-        description: "Button 2 pressed"
-        command: "echo 'Button 2 pressed' && logger -t spi-controller 'Button 2 pressed'"
+  - button: 18
+    config: 0x68
+    description: "Pre-heat"
+    command: "echo 'Button 18 Pre-heat' && logger -t spi-controller 'Button 18 Pre-heat'"
       
-      - value: 0x04
-        mask: 0x04
-        description: "Button 3 pressed"
-        command: "echo 'Button 3 pressed' && logger -t spi-controller 'Button 3 pressed'"
+  - button: 17
+    config: 0x68
+    description: "Home X"
+    command: "echo 'Button 17 Home X' && logger -t spi-controller 'Button 17 Home X'"
 
-  - register_address: 0x01
-    name: "LED Control Register"
-    value_triggers:
-      - value: 0x00
-        description: "All LEDs off"
-        command: "logger -t spi-controller 'LED state: all off'"
-      
-      - value: 0xFF
-        description: "All LEDs on"
-        command: "logger -t spi-controller 'LED state: all on'"
+  - button: 16
+    config: 0x68
+    description: "Home Y"
+    command: "echo 'Button 16 Home Y' && logger -t spi-controller 'Button 16 Home Y'"
+  
+  - button: 15
+    config: 0x68
+    description: "Home Z"
+    command: "echo 'Button 15 Home Z' && logger -t spi-controller 'Button 15 Home Z'"
 
-  - register_address: 0x02
-    name: "Status Register"
-    value_triggers:
-      - value: 0x01
-        description: "Device ready"
-        command: "logger -t spi-controller 'Device status: ready'"
-      
-      - value: 0x02
-        description: "Device error"
-        command: "logger -t spi-controller 'Device status: error'"
+  - button: 14
+    config: 0x68
+    description: "Bed Lvl"
+    command: "echo 'Button 14 Bed Lvl' && logger -t spi-controller 'Button 14 Bed Lvl'"
+  
+  - button: 13
+    config: 0x68
+    description: "Jog opn"
+    command: "echo 'Button 13 Jog opn' && logger -t spi-controller 'Button 13 Jog opn'"
+
+  - button: 12
+    config: 0x68
+    description: "Jog cls"
+    command: "echo 'Button 12 Jog cls' && logger -t spi-controller 'Button 12 Jog cls'"
+
+  - button: 11
+    config: 0x68
+    description: "Pfan +"
+    command: "echo 'Button 11 Pfan +' && logger -t spi-controller 'Button 11 Pfan +'"
+
+  - button: 10
+    config: 0x68
+    description: "Pfan -"
+    command: "echo 'Button 10 Pfan -' && logger -t spi-controller 'Button 10 Pfan -'"
+
+  - button: 9
+    config: 0x68
+    description: "Speed +"
+    command: "echo 'Button 9 Speed +' && logger -t spi-controller 'Button 9 Speed +'"
+
+  - button: 8
+    config: 0x68
+    description: "Speed -"
+    command: "echo 'Button 8 Speed -' && logger -t spi-controller 'Button 8 Speed -'"
+
+  - button: 7
+    config: 0x68
+    description: "Bed dn"
+    command: "echo 'Button 7 Bed dn' && logger -t spi-controller 'Button 7 Bed dn'"
+
+  - button: 6
+    config: 0x00
+    description: ""
+    command: "echo 'Button 6' && logger -t spi-controller 'Button 6'"
+
+  - button: 5
+    config: 0x00
+    description: ""
+    command: "echo 'Button 5' && logger -t spi-controller 'Button 5'"
+
+  - button: 4
+    config: 0x00
+    description: ""
+    command: "echo 'Button 4' && logger -t spi-controller 'Button 4'"
+
+  - button: 3
+    config: 0x00
+    description: ""
+    command: "echo 'Button 3' && logger -t spi-controller 'Button 3'"
+
+  - button: 2
+    config: 0x00
+    description: ""
+    command: "echo 'Button 2' && logger -t spi-controller 'Button 2'"
+
+  - button: 1
+    config: 0x68
+    description: "Rst Klipper"
+    command: "echo 'Button 1 Rst Klipper' && logger -t spi-controller 'Button 1 Rst Klipper'"
+
+  - button: 0
+    config: 0x68
+    description: "Power dn"
+    command: "echo 'Button 0 Power dn' && logger -t spi-controller 'Button 0 Power dn'"
