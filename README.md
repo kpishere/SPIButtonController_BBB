@@ -217,7 +217,7 @@ buttons:
     command: "/usr/local/bin/emergency-stop.sh"
 
 klipper:
-  base_url: "http://127.0.0.1:7125/"
+  socket_path: "/run/klipper_uds"
   api_key: null
 ```
 
@@ -251,7 +251,7 @@ buttons:
     command: "klipper:printer.objects.query|{\"objects\":{\"printer\":null}}"
 
 klipper:
-  base_url: "http://127.0.0.1:7125/"
+  socket_path: "/run/klipper_uds"
   api_key: null
 ```
 
@@ -303,12 +303,12 @@ Error: SPI device not found: /dev/spidev0.0
 This project includes support for sending commands to a Klipper API server alongside traditional system commands. Key points:
 
 - **Klipper API support**: An optional `klipper` section can be added to the YAML configuration (see `src/config.rs`). Fields:
-  - **base_url**: Base URL for the Klipper API server, e.g. `http://127.0.0.1:7125/`
+  - **socket_path**: Path to the Klipper API Unix domain socket, e.g. `/run/klipper_uds`
   - **api_key**: Optional token or API key (currently not automatically applied as a header; extend `send_klipper_command` in `src/command.rs` if needed)
 
 - **Command types**:
   - **System commands**: Existing behavior — any shell command in the `command` field is executed locally.
-  - **Klipper commands**: Commands that start with the prefix `klipper:` are sent to the Klipper API server via HTTP.
+  - **Klipper commands**: Commands that start with the prefix `klipper:` are sent to the Klipper API server via Unix domain socket.
     - Syntax: `klipper:METHOD|<JSON_PARAMS>`
     - Example: `klipper:printer.gcode.script|{"script":"G28"}`
 

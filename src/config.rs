@@ -22,8 +22,8 @@ pub struct PollingConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KlipperConfig {
-    /// Base URL for the Klipper API server, e.g. http://127.0.0.1:7125/
-    pub base_url: String,
+    /// Path to the Klipper API Unix domain socket, e.g. /run/klipper_uds
+    pub socket_path: String,
     /// Optional API key or token if the server requires authentication
     pub api_key: Option<String>,
 }

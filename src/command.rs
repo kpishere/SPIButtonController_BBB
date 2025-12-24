@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
 use log::{debug, info, warn};
 use std::process::Command;
-// uuid is not required in this file anymore
 use serde_json::Value as JsonValue;
 use tokio::sync::mpsc::Sender;
+use tokio::net::UnixStream;
+use tokio::io::{AsyncWriteExt, AsyncReadExt};
 
 use crate::config::KlipperConfig;
 
@@ -92,7 +93,7 @@ impl CommandExecutor {
         }
     }
 */
-    /// Send a Klipper API command asynchronously.
+    /// Send a Klipper API command asynchronously via Unix Domain Socket.
     ///
     /// Command string format (simple syntax):
     /// klipper:METHOD|<JSON_PARAMS>
@@ -132,37 +133,111 @@ impl CommandExecutor {
         // Build JSON-RPC like body using provided request_id
         let mut body = serde_json::Map::new();
         body.insert("jsonrpc".to_string(), JsonValue::String("2.0".to_string()));
-        body.insert("id".to_string(), JsonValue::String(request_id.to_string()));
+        body.insert("id".to_string(), JsonValue::Number(request_id.into()));
         body.insert("method".to_string(), JsonValue::String(method.to_string()));
         body.insert("params".to_string(), params_json.clone());
 
-        let client = reqwest::Client::new();
+        let request_json = serde_json::to_string(&JsonValue::Object(body))
+            .unwrap_or_default();
+        
+        // Attempt to connect to Unix domain socket
+        match UnixStream::connect(&klipper.socket_path).await {
+            Ok(mut stream) => {
+                // Send the request
+                if let Err(e) = stream.write_all(request_json.as_bytes()).await {
+                    warn!("Failed to write to Unix socket: {}", e);
+                    let _ = response_tx
+                        .send(EventMessage::Response(EventResponse {
+                            request_id,
+                            success: false,
+                            status: Some(format!("socket_write_error: {}", e)),
+                            body: None,
+                        }))
+                        .await;
+                    return;
+                }
 
-        let url = klipper.base_url.trim_end_matches('/').to_string();
+                // Send ETX (ASCII 0x03) to signal end of request
+                if let Err(e) = stream.write_all(&[0x03]).await {
+                    warn!("Failed to write ETX to Unix socket: {}", e);
+                    let _ = response_tx
+                        .send(EventMessage::Response(EventResponse {
+                            request_id,
+                            success: false,
+                            status: Some(format!("socket_write_error: {}", e)),
+                            body: None,
+                        }))
+                        .await;
+                    return;
+                }
 
-        let resp_result = client.post(&url).json(&JsonValue::Object(body)).send().await;
+                // Read response
+                let mut buffer = vec![0; 4096];
+                match stream.read(&mut buffer).await {
+                    Ok(n) if n > 0 => {
+                        let response_str = String::from_utf8_lossy(&buffer[..n]);
+                        match serde_json::from_str::<JsonValue>(&response_str) {
+                            Ok(json_response) => {
+                                let success = !response_str.contains("\"error\"");
+                                let status = if success {
+                                    "200".to_string()
+                                } else {
+                                    "error".to_string()
+                                };
 
-        match resp_result {
-            Ok(resp) => {
-                let status = resp.status().as_str().to_string();
-                let success = resp.status().is_success();
-                let json_body = resp.json::<JsonValue>().await.ok();
-                let _ = response_tx
-                    .send(EventMessage::Response(EventResponse {
-                        request_id,
-                        success,
-                        status: Some(status),
-                        body: json_body,
-                    }))
-                    .await;
+                                let _ = response_tx
+                                    .send(EventMessage::Response(EventResponse {
+                                        request_id,
+                                        success,
+                                        status: Some(status),
+                                        body: Some(json_response),
+                                    }))
+                                    .await;
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse Klipper response JSON: {}", e);
+                                let _ = response_tx
+                                    .send(EventMessage::Response(EventResponse {
+                                        request_id,
+                                        success: false,
+                                        status: Some(format!("parse_error: {}", e)),
+                                        body: None,
+                                    }))
+                                    .await;
+                            }
+                        }
+                    }
+                    Ok(_) => {
+                        warn!("Received empty response from Klipper socket");
+                        let _ = response_tx
+                            .send(EventMessage::Response(EventResponse {
+                                request_id,
+                                success: false,
+                                status: Some("empty_response".to_string()),
+                                body: None,
+                            }))
+                            .await;
+                    }
+                    Err(e) => {
+                        warn!("Failed to read from Unix socket: {}", e);
+                        let _ = response_tx
+                            .send(EventMessage::Response(EventResponse {
+                                request_id,
+                                success: false,
+                                status: Some(format!("socket_read_error: {}", e)),
+                                body: None,
+                            }))
+                            .await;
+                    }
+                }
             }
             Err(e) => {
-                warn!("Failed to send Klipper command: {}", e);
+                warn!("Failed to connect to Klipper Unix socket at {}: {}", klipper.socket_path, e);
                 let _ = response_tx
                     .send(EventMessage::Response(EventResponse {
                         request_id,
                         success: false,
-                        status: Some(format!("error: {}", e)),
+                        status: Some(format!("connection_error: {}", e)),
                         body: None,
                     }))
                     .await;
