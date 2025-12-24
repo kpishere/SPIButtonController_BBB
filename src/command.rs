@@ -12,7 +12,7 @@ pub struct CommandExecutor;
 /// Response pushed into the event response queue when a Klipper command returns
 #[derive(Debug, Clone)]
 pub struct EventResponse {
-    pub request_id: String,
+    pub request_id: u32,
     pub success: bool,
     pub status: Option<String>,
     pub body: Option<JsonValue>,
@@ -23,7 +23,7 @@ pub struct EventResponse {
 /// carries the response from Klipper.
 #[derive(Debug, Clone)]
 pub enum EventMessage {
-    Issued { request_id: String, trigger_info: String },
+    Issued { request_id: u32, trigger_info: String },
     Response(EventResponse),
 }
 
@@ -100,7 +100,7 @@ impl CommandExecutor {
     pub async fn send_klipper_command(
         command: &str,
         klipper: &KlipperConfig,
-        request_id: &str,
+        request_id: u32,
         response_tx: Sender<EventMessage>,
     ) {
         info!("Preparing Klipper command: {}", command);
@@ -119,7 +119,7 @@ impl CommandExecutor {
                 warn!("Failed to parse Klipper params JSON: {}", e);
                 let _ = response_tx
                     .send(EventMessage::Response(EventResponse {
-                        request_id: "".to_string(),
+                        request_id,
                         success: false,
                         status: Some("invalid_params".to_string()),
                         body: None,
@@ -149,7 +149,7 @@ impl CommandExecutor {
                 let json_body = resp.json::<JsonValue>().await.ok();
                 let _ = response_tx
                     .send(EventMessage::Response(EventResponse {
-                        request_id: request_id.to_string(),
+                        request_id,
                         success,
                         status: Some(status),
                         body: json_body,
@@ -160,7 +160,7 @@ impl CommandExecutor {
                 warn!("Failed to send Klipper command: {}", e);
                 let _ = response_tx
                     .send(EventMessage::Response(EventResponse {
-                        request_id: request_id.to_string(),
+                        request_id,
                         success: false,
                         status: Some(format!("error: {}", e)),
                         body: None,

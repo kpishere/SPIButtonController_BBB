@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     let (resp_tx, mut resp_rx) = mpsc::channel::<EventMessage>(32);
 
     // map request_id -> trigger_info for correlation
-    let mut pending: HashMap<String, String> = HashMap::new();
+    let mut pending: HashMap<u32, String> = HashMap::new();
 
     // Create daemon and provide response sender
     let mut daemon = daemon::Daemon::new(config, Some(resp_tx))?;
@@ -94,10 +94,11 @@ async fn main() -> Result<()> {
                             } else {
                                 info!("Klipper response id={} (no matching issue found) success={} status={:?} body={:?}", resp.request_id, resp.success, resp.status, resp.body);
                             }
+                            // TODO: Set value on button
                         }
                     }
                 }
-            }
+            }            
         }
     }
 

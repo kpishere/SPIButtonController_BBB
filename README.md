@@ -6,13 +6,11 @@ A Linux daemon service written in Rust that monitors an SPI device for register 
 
 - **Async/await based polling** - Non-blocking SPI device monitoring using Tokio
 - **Configuration file driven** - YAML configuration for registers and command mappings
-- **Event debouncing** - Prevents rapid re-triggering of the same event
 - **Graceful shutdown** - Handles SIGTERM and SIGINT signals properly
 - **Configuration reload** - Send SIGHUP to reload configuration without restarting
 - **Systemd integration** - Runs as a native Linux daemon with journald logging
-- **Value masking** - Support for partial register value matching with bit masks
-- **Multiple registers** - Monitor and respond to changes in multiple registers
 - **Shell command execution** - Execute arbitrary shell commands on register value changes
+- **Send commands to Klipper API** - Send command and handle response
 
 ## Requirements
 
@@ -283,16 +281,12 @@ klipper:
    - Handles debouncing
    - Processes triggers
 
-3. **SPI Device** (`src/spi.rs`)
-   - Low-level SPI communication
-   - Register read/write operations
-
-4. **Command Executor** (`src/command.rs`)
+3. **Command Executor** (`src/command.rs`)
    - Executes shell commands
    - Handles command output and errors
    - Optional timeout support
 
-5. **Configuration** (`src/config.rs`)
+4. **Configuration** (`src/config.rs`)
    - Data structures for configuration
    - YAML deserialization
 
@@ -319,7 +313,7 @@ This project includes support for sending commands to a Klipper API server along
     - Example: `klipper:printer.gcode.script|{"script":"G28"}`
 
 - **Request/response flow**:
-  1. When a Klipper command is triggered, the daemon generates a UUID `request_id` and immediately sends an `Issued` event (containing `request_id` and trigger metadata) into the internal response queue.
+  1. When a Klipper command is triggered, the daemon generates a `request_id` and immediately sends an `Issued` event (containing `request_id` and trigger metadata) into the internal response queue.
   2. The Klipper request is posted as a JSON-RPC-like object to the configured `klipper.base_url` with the provided method and params.
   3. When the HTTP response arrives, an `EventResponse` is queued with the `request_id`, success status, HTTP status code, and parsed response body.
   4. The main loop maintains a `pending` map of `request_id -> trigger_info` and uses it to correlate responses to the originating button trigger. Once correlated, the mapping is removed and the response is logged.
@@ -374,7 +368,6 @@ If the daemon is using high CPU:
 ## Performance Tuning
 
 - **Polling interval**: Increase `polling.interval_ms` for lower CPU usage but higher latency
-- **Debounce interval**: Adjust `debounce_ms` based on expected event frequency
 - **SPI speed**: Increase `speed_hz` for faster communication (depends on device capability)
 
 ## Development
@@ -400,11 +393,7 @@ cargo build
 
 ## License
 
-[Your License Here]
-
-## Contributing
-
-[Contributing Guidelines]
+GPL V2.0
 
 ## Support
 
@@ -426,4 +415,3 @@ ls /boot/dtbs/$(uname -r)/am335x-boneblack-overlay/*.dtb
 Common SPI device paths on BBB:
 - `/dev/spidev1.0` - SPI1, CS0
 - `/dev/spidev1.1` - SPI1, CS1
-- `/dev/spidev2.0` - SPI2, CS0

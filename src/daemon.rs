@@ -10,6 +10,7 @@ pub struct Daemon {
     spi: SPIButtonController,
     config: Config,
     response_tx: Option<tokio::sync::mpsc::Sender<EventMessage>>,
+    id_next: u32,
 }
 
 impl Daemon {
@@ -27,6 +28,7 @@ impl Daemon {
                     spi,
                     config,
                     response_tx,
+                    id_next: 0,
                 })        
             }
             Err(e) => {
@@ -79,6 +81,8 @@ impl Daemon {
             }
         }
 
+
+
         // Sleep for the configured polling interval
         sleep(Duration::from_millis(self.config.polling.interval_ms)).await;
 
@@ -86,7 +90,7 @@ impl Daemon {
     }
 
     async fn process_triggers(
-        &self,
+        &mut self,
         button: &mut SPIButton,
     ) {        
         // Execute the associated command
@@ -102,18 +106,18 @@ impl Daemon {
                     let tx_clone = tx.clone();
 
                     // Generate request id and notify main loop that a request was issued
-                    let request_id = uuid::Uuid::new_v4().to_string();
+                    self.id_next += 1;
+                    let request_id = self.id_next;
                     let trigger_info = format!("button_id={} desc={:?}", button.id(), cfg_button.description);
                     // send Issued event so main can persist metadata
                     let _ = tx.clone().try_send(EventMessage::Issued { request_id: request_id.clone(), trigger_info: trigger_info.clone() });
 
                     // spawn the async request using the supplied request_id
                     tokio::spawn(async move {
-                        CommandExecutor::send_klipper_command(&cmd_clone, &klipper_clone, &request_id, tx_clone).await;
+                        CommandExecutor::send_klipper_command(&cmd_clone, &klipper_clone, request_id, tx_clone).await;
                     });
 
                     info!("Dispatched Klipper command from button {:?}", cfg_button.description);
-                    button.set_state(SPIButtonState::Off);
                 } else {
                     warn!("Klipper command requested but no response queue configured");
                     button.set_state(SPIButtonState::Flash2);
