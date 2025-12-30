@@ -218,7 +218,6 @@ buttons:
 
 klipper:
   socket_path: "/run/klipper_uds"
-  api_key: null
 ```
 
 ### Mixed System and Klipper Commands
@@ -252,7 +251,6 @@ buttons:
 
 klipper:
   socket_path: "/run/klipper_uds"
-  api_key: null
 ```
 
 ### Button Configuration Details
@@ -304,7 +302,6 @@ This project includes support for sending commands to a Klipper API server along
 
 - **Klipper API support**: An optional `klipper` section can be added to the YAML configuration (see `src/config.rs`). Fields:
   - **socket_path**: Path to the Klipper API Unix domain socket, e.g. `/run/klipper_uds`
-  - **api_key**: Optional token or API key (currently not automatically applied as a header; extend `send_klipper_command` in `src/command.rs` if needed)
 
 - **Command types**:
   - **System commands**: Existing behavior — any shell command in the `command` field is executed locally.
@@ -325,10 +322,6 @@ This project includes support for sending commands to a Klipper API server along
   - `src/main.rs` — creates the response queue, tracks pending requests in a map, and correlates incoming responses to original triggers.
 
 - **Build & run**: Build with `cargo build --release` and run with a config path. If using `klipper:` commands, ensure `klipper.base_url` is configured.
-
-- **Notes & extensions**:
-  - If your Klipper server requires authentication, extend `send_klipper_command` to add auth headers using `api_key`.
-  - Consider adding retries, timeouts, or persistence for the `pending` map if durability across daemon restarts is required.
 
 
 Solution: 

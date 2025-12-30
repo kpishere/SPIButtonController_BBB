@@ -24,7 +24,7 @@ pub struct EventResponse {
 /// carries the response from Klipper.
 #[derive(Debug, Clone)]
 pub enum EventMessage {
-    Issued { request_id: u32, trigger_info: String },
+    Issued { request_id: u32, trigger_button: String },
     Response(EventResponse),
 }
 
@@ -132,14 +132,13 @@ impl CommandExecutor {
 
         // Build JSON-RPC like body using provided request_id
         let mut body = serde_json::Map::new();
-        body.insert("jsonrpc".to_string(), JsonValue::String("2.0".to_string()));
         body.insert("id".to_string(), JsonValue::Number(request_id.into()));
         body.insert("method".to_string(), JsonValue::String(method.to_string()));
         body.insert("params".to_string(), params_json.clone());
 
         let request_json = serde_json::to_string(&JsonValue::Object(body))
             .unwrap_or_default();
-        
+
         // Attempt to connect to Unix domain socket
         match UnixStream::connect(&klipper.socket_path).await {
             Ok(mut stream) => {
@@ -176,6 +175,7 @@ impl CommandExecutor {
                 match stream.read(&mut buffer).await {
                     Ok(n) if n > 0 => {
                         let response_str = String::from_utf8_lossy(&buffer[..n]);
+                        let response_str = response_str.replace("\x03", "\x0A");
                         match serde_json::from_str::<JsonValue>(&response_str) {
                             Ok(json_response) => {
                                 let success = !response_str.contains("\"error\"");

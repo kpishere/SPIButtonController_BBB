@@ -38,6 +38,12 @@ impl Daemon {
         }
     }
 
+    pub fn set_button_state(&mut self, button_id: u8, new_state: SPIButtonState) {        
+        let mut btn = self.spi.get_button( button_id as usize );
+        btn.set_state(new_state);
+        self.spi.set_button(button_id, btn);
+    } 
+
     fn init(config: &Config, spi: &mut SPIButtonController)
     {
         for register_map in &config.buttons {
@@ -101,23 +107,28 @@ impl Daemon {
             // Klipper API command syntax: klipper:METHOD|<JSON_PARAMS>
             if let Some(klipper_cfg) = &self.config.klipper {
                 if let Some(tx) = &self.response_tx {
-                    let cmd_clone = cmd.to_string();
+                    let mut cmd_clone = cmd.to_string();
                     let klipper_clone = klipper_cfg.clone();
                     let tx_clone = tx.clone();
 
                     // Generate request id and notify main loop that a request was issued
                     self.id_next += 1;
                     let request_id = self.id_next;
-                    let trigger_info = format!("button_id={} desc={:?}", button.id(), cfg_button.description);
+                    let trigger_button = format!("{}", button.id());
+                    let value = match button.get_state() {
+                        SPIButtonState::Off => "0",
+                        _ => "1", 
+                    };
+                    cmd_clone = cmd_clone.replace("{{val}}", value );
+
                     // send Issued event so main can persist metadata
-                    let _ = tx.clone().try_send(EventMessage::Issued { request_id: request_id.clone(), trigger_info: trigger_info.clone() });
+                    let _ = tx.clone().try_send(EventMessage::Issued { request_id: request_id.clone(), trigger_button: trigger_button.clone() });
 
                     // spawn the async request using the supplied request_id
                     tokio::spawn(async move {
                         CommandExecutor::send_klipper_command(&cmd_clone, &klipper_clone, request_id, tx_clone).await;
                     });
-
-                    info!("Dispatched Klipper command from button {:?}", cfg_button.description);
+                    button.set_state(SPIButtonState::Off);
                 } else {
                     warn!("Klipper command requested but no response queue configured");
                     button.set_state(SPIButtonState::Flash2);

@@ -10,6 +10,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::mpsc;
 use crate::command::EventMessage;
 use std::collections::HashMap;
+use spibuttonlib::SPIButtonState;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -27,8 +28,16 @@ async fn main() -> Result<()> {
     // Load configuration
     let config_content = fs::read_to_string(&config_path)
         .context(format!("Failed to read config file: {}", config_path))?;
-    let config: config::Config = serde_yaml::from_str(&config_content)
+    let mut config: config::Config = serde_yaml::from_str(&config_content)
         .context("Failed to parse configuration file")?;
+
+    // Sort by button number & sanity check unique button IDs as ordinal vector number === button ID
+    config.buttons.sort_by(|a,b| {a.button.cmp(&b.button)});
+    let bcnt: usize = config.buttons.len();
+    if bcnt != config.buttons[ bcnt - 1 ].button as usize + 1
+    {
+        return Err(anyhow::anyhow!("Configuration error for button IDs, they must be consective starting from zero."));
+    }
 
     info!("Configuration loaded successfully");
 
@@ -82,15 +91,39 @@ async fn main() -> Result<()> {
             maybe_msg = resp_rx.recv() => {
                 if let Some(msg) = maybe_msg {
                     match msg {
-                        EventMessage::Issued { request_id, trigger_info } => {
+                        EventMessage::Issued { request_id, trigger_button } => {
                             // persist mapping for later correlation
-                            pending.insert(request_id.clone(), trigger_info.clone());
-                            info!("Tracked issued request id={} info={}", request_id, trigger_info);
+                            pending.insert(request_id.clone(), trigger_button.clone());
+                            info!("Tracked issued request id={} triger_button={}", request_id, trigger_button);
                         }
                         EventMessage::Response(resp) => {
                             // correlate with original trigger
-                            if let Some(info) = pending.remove(&resp.request_id) {
-                                info!("Klipper response id={} correlated_to={} success={} status={:?} body={:?}", resp.request_id, info, resp.success, resp.status, resp.body);
+                            if let Some(button) = pending.remove(&resp.request_id) {
+                                let mut final_button_status = SPIButtonState::Off;
+                                let button_u8 = button.parse::<u8>().unwrap();
+                                info!("Klipper response id={} correlated_to={} success={} status={:?} body={:?}"
+                                    , resp.request_id, button, resp.success, resp.status, resp.body);
+                                if resp.success {
+                                } else {
+                                    match resp.status {
+                                        Some(msg) => {
+                                            match msg.as_ref() {
+                                                "empty_response" => {
+                                                    // OK case: restart
+                                                },
+                                                _ => {
+                                                    // Presumed error case
+                                                    final_button_status = SPIButtonState::Flash2;
+                                                },
+                                            }
+                                        }
+                                        _ => {
+                                            // error case, no status
+                                            final_button_status = SPIButtonState::Flash2;
+                                        }
+                                    }
+                                }
+                                daemon.set_button_state(button_u8, final_button_status);
                             } else {
                                 info!("Klipper response id={} (no matching issue found) success={} status={:?} body={:?}", resp.request_id, resp.success, resp.status, resp.body);
                             }

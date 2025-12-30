@@ -15,7 +15,10 @@ spi:
 polling:
   # How often to poll the buttons (in milliseconds)
   interval_ms: 100
-  
+
+klipper:
+  socket_path: /tmp/klippy_uds
+
 # Register mappings and value triggers
 buttons:
   - button: 19
@@ -105,9 +108,9 @@ buttons:
     command: "echo 'Button 3' && logger -t spi-controller 'Button 3'"
 
   - button: 2
-    config: 0x00
-    description: ""
-    command: "echo 'Button 2' && logger -t spi-controller 'Button 2'"
+    config: 0x68
+    description: "Query Printer Status"
+    command: "klipper:printer.objects.query|{\"objects\":{\"printer\":null}}"
 
   - button: 1
     config: 0x68
