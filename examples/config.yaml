@@ -24,100 +24,100 @@ buttons:
   - button: 19
   # Fire events on: SPIButtonState::OnChange (0x20) | SPIButtonState::OnHold (0x40), lamp toggle feature SPIButtonState::Toggle (0x08)
     config: 0x68
-    description: "Lamp"
-    command: "echo 'Button 19 Lamp' && logger -t spi-controller 'Button 19 Lamp'"
+    description: "Lamp OFF"
+    command: "klipper:gcode/script|{\"script\":\"SET_PIN PIN=caselight_ht3 VALUE=0\"}"
       
   - button: 18
     config: 0x68
-    description: "Pre-heat"
-    command: "echo 'Button 18 Pre-heat' && logger -t spi-controller 'Button 18 Pre-heat'"
+    description: "Lamp ON"
+    command: "klipper:gcode/script|{\"script\":\"SET_PIN PIN=caselight_ht3 VALUE=1\"}"
       
   - button: 17
     config: 0x68
     description: "Home X"
-    command: "echo 'Button 17 Home X' && logger -t spi-controller 'Button 17 Home X'"
+    command: "klipper:gcode/script|{\"script\":\"G28 X\"}"
 
   - button: 16
     config: 0x68
-    description: "Home Y"
-    command: "echo 'Button 16 Home Y' && logger -t spi-controller 'Button 16 Home Y'"
-  
+    description: "Pre-Heat"
+    command: "klipper:gcode/script|{\"script\":\"PRE_WARM\"}"
+
   - button: 15
     config: 0x68
     description: "Home Z"
-    command: "echo 'Button 15 Home Z' && logger -t spi-controller 'Button 15 Home Z'"
+    command: "klipper:gcode/script|{\"script\":\"G28 Z\"}"
 
   - button: 14
     config: 0x68
-    description: "Bed Lvl"
-    command: "echo 'Button 14 Bed Lvl' && logger -t spi-controller 'Button 14 Bed Lvl'"
+    description: "Home Y"
+    command: "klipper:gcode/script|{\"script\":\"G28 Y\"}"
   
   - button: 13
     config: 0x68
-    description: "Jog opn"
-    command: "echo 'Button 13 Jog opn' && logger -t spi-controller 'Button 13 Jog opn'"
+    description: "Bed Dn"
+    command: "klipper:gcode/script|{\"script\":\"MOVE_UP\"}"
 
   - button: 12
     config: 0x68
-    description: "Jog cls"
-    command: "echo 'Button 12 Jog cls' && logger -t spi-controller 'Button 12 Jog cls'"
+    description: "Bed Lvl"
+    command: "klipper:gcode/script|{\"script\":\"Z_TILT_ADJUST\"}"
 
   - button: 11
     config: 0x68
-    description: "Pfan +"
-    command: "echo 'Button 11 Pfan +' && logger -t spi-controller 'Button 11 Pfan +'"
+    description: "Retract -10"
+    command: "klipper:gcode/script|{\"script\":\"G10\"}"
 
   - button: 10
     config: 0x68
-    description: "Pfan -"
-    command: "echo 'Button 10 Pfan -' && logger -t spi-controller 'Button 10 Pfan -'"
+    description: "Extrd +10"
+    command: "klipper:gcode/script|{\"script\":\"G11\"}"
 
   - button: 9
     config: 0x68
-    description: "Speed +"
-    command: "echo 'Button 9 Speed +' && logger -t spi-controller 'Button 9 Speed +'"
+    description: "Jog Cls"
+    command: "klipper:gcode/script|{\"script\":\"M290 R1 Z-0.05\"}"
 
   - button: 8
     config: 0x68
-    description: "Speed -"
-    command: "echo 'Button 8 Speed -' && logger -t spi-controller 'Button 8 Speed -'"
+    description: "Jog Opn"
+    command: "klipper:gcode/script|{\"script\":\"M290 R1 Z0.05\"}"
 
   - button: 7
     config: 0x68
-    description: "Bed dn"
-    command: "echo 'Button 7 Bed dn' && logger -t spi-controller 'Button 7 Bed dn'"
+    description: "Pfan -"
+    command: "klipper:gcode/script|{\"script\":\"M107\"}"
 
   - button: 6
-    config: 0x00
-    description: ""
-    command: "echo 'Button 6' && logger -t spi-controller 'Button 6'"
+    config: 0x68
+    description: "Pfan +"
+    command: "klipper:gcode/script|{\"script\":\"M106 S1.0\"}"
 
   - button: 5
-    config: 0x00
-    description: ""
-    command: "echo 'Button 5' && logger -t spi-controller 'Button 5'"
+    config: 0x68
+    description: "Speed -"
+    command: "klipper:gcode/script|{\"script\":\"M220 S90\"}"
 
   - button: 4
-    config: 0x00
-    description: ""
-    command: "echo 'Button 4' && logger -t spi-controller 'Button 4'"
+    config: 0x68
+    description: "Speed +"
+    command: "klipper:gcode/script|{\"script\":\"M220 S110\"}"
 
   - button: 3
-    config: 0x00
-    description: ""
-    command: "echo 'Button 3' && logger -t spi-controller 'Button 3'"
+    config: 0x68
+    description: "Lyr Resume"
+    command: "klipper:gcode/script|{\"script\":\"M106 S1.0\"}"
 
   - button: 2
     config: 0x68
-    description: "Query Printer Status"
-    command: "klipper:printer.objects.query|{\"objects\":{\"printer\":null}}"
+    description: "Lyr Pause"
+    command: "klipper:gcode/script|{\"script\":\"M106 S1.0\"}"
 
   - button: 1
     config: 0x68
     description: "Rst Klipper"
-    command: "echo 'Button 1 Rst Klipper' && logger -t spi-controller 'Button 1 Rst Klipper'"
+    command: "service klipper restart"
 
   - button: 0
     config: 0x68
     description: "Power dn"
-    command: "echo 'Button 0 Power dn' && logger -t spi-controller 'Button 0 Power dn'"
+    command: "/usr/sbin/poweroff"

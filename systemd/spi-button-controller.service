@@ -1,7 +1,7 @@
 [Unit]
 Description=SPI Button Controller Daemon
 Documentation=man:spi-button-controller(8)
-After=network.target
+After=klipper.service
 
 [Service]
 Type=simple
@@ -22,10 +22,10 @@ StandardError=journal
 SyslogIdentifier=spi-button-controller
 
 # Security hardening (optional)
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=yes
-ReadWritePaths=/dev/spidev*
+#NoNewPrivileges=true
+#ProtectSystem=strict
+#ProtectHome=yes
+#ReadWritePaths=/dev/spidev*
 
 [Install]
 WantedBy=multi-user.target

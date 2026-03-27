@@ -97,7 +97,7 @@ impl CommandExecutor {
     ///
     /// Command string format (simple syntax):
     /// klipper:METHOD|<JSON_PARAMS>
-    /// Example: klipper:printer.gcode.script|{"script":"G28"}
+    /// Example: klipper:gcode/script|{"script":"G28"}
     pub async fn send_klipper_command(
         command: &str,
         klipper: &KlipperConfig,

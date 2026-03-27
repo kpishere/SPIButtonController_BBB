@@ -204,12 +204,12 @@ buttons:
   - button: 0
     config: 0x68
     description: "Home XY Axes"
-    command: "klipper:printer.gcode.script|{\"script\":\"G28 X Y\"}"
+    command: "klipper:gcode/script|{\"script\":\"G28 X Y\"}"
   
   - button: 1
     config: 0x68
     description: "Heat Bed to 60C"
-    command: "klipper:printer.gcode.script|{\"script\":\"M140 S60\"}"
+    command: "klipper:gcode/script|{\"script\":\"M140 S60\"}"
   
   - button: 2
     config: 0x68
@@ -307,7 +307,7 @@ This project includes support for sending commands to a Klipper API server along
   - **System commands**: Existing behavior — any shell command in the `command` field is executed locally.
   - **Klipper commands**: Commands that start with the prefix `klipper:` are sent to the Klipper API server via Unix domain socket.
     - Syntax: `klipper:METHOD|<JSON_PARAMS>`
-    - Example: `klipper:printer.gcode.script|{"script":"G28"}`
+    - Example: `klipper:gcode/script|{"script":"G28"}`
 
 - **Request/response flow**:
   1. When a Klipper command is triggered, the daemon generates a `request_id` and immediately sends an `Issued` event (containing `request_id` and trigger metadata) into the internal response queue.
